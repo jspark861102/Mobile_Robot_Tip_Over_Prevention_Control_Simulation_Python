@@ -1,0 +1,10 @@
+1. 깃허브 주소
+   https://github.com/coin-or/qpOASES
+
+2. qpOASES 설치
+ cython 설치    
+    pip install Cython --install-option="--no-cython-compile"
+
+3. qpOASES for python은 manual.pdf의 3번 방법을 따라서 설치
+
+
