@@ -6,10 +6,11 @@ import random
 import copy
 import ref_trajectory_mecanum
 import Batch_formulation
-from QP_constraints import constraints
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
+#from QP_constraints import constraints
+from QP_constraints_fast import constraints
+import time
+from for_gen import generator
+from data_plot import dataplot
 
 T = 0.01
 dt = copy.copy(T)
@@ -101,15 +102,21 @@ x_state = np.zeros((n,len(t)-N))
 #x_tilt_m1_dummy = np.zeros(3)
 
 #define QP
-QP_MPC = SQProblem(m*N, n*N)
+#QP_MPC = SQProblem(m*N, n*N)
+QP_MPC = SQProblem(m*N, (n-1)*N)
 options = Options()
 QP_MPC.setOptions(options)
 #QP_MPC.printOptions()
 
-for k in range(0, len(t)-N):   
+tactime = np.zeros(len(t)-N)
+for k in generator(0, len(t)-N):   
+    starttime = time.time()
+
     #MPC formulation
     cur_state = k
+    #starttime = time.time()
     Sx, Su, Qb, Rb = Batch_formulation.BF(A, B, N, Q, R, cur_state)
+    #tactime[k] = time.time() - starttime
 
     H = np.matmul(np.matmul(Su.T, Qb), Su) + Rb
     F = np.matmul(np.matmul(Sx.T, Qb), Su) 
@@ -119,24 +126,25 @@ for k in range(0, len(t)-N):
     if k == 0 or k == 1:
         x_tilt_m1 = x0_tilt.copy()
     else:
-        x_tilt_m1 = x_tilt_m1_dummy.copy()
+        x_tilt_m1 = x_tilt_m1_dummy.copy()    
     
     G, E, wu, wl, wu_input, wl_input = constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, D, L, T, switch_zmp, switch_input, thr_input, switch_state, thr_state, mu);
-    
-    #QP    
+
+    #QP        
     nWSR = np.array([100])
     if k == 0:
-        QP_MPC.init(H, 2*np.matmul( F.T, x_tilt_current), G, wl_input, wu_input, wl+np.matmul(E, x_tilt_current), wu+np.matmul(E, x_tilt_current), nWSR)        
+        QP_MPC.init(H, 2*np.matmul( F.T, x_tilt_current), G, wl_input, wu_input, wl+np.matmul(E, x_tilt_current), wu+np.matmul(E, x_tilt_current), nWSR)                
     else:
-        QP_MPC.hotstart(H, 2*np.matmul( F.T, x_tilt_current), G, wl_input, wu_input, wl+np.matmul(E, x_tilt_current), wu+np.matmul(E, x_tilt_current), nWSR)        
+        QP_MPC.hotstart(H, 2*np.matmul( F.T, x_tilt_current), G, wl_input, wu_input, wl+np.matmul(E, x_tilt_current), wu+np.matmul(E, x_tilt_current), nWSR)                
 
     QP_MPC.getPrimalSolution(u_tilt)
-    print('k =',k)
-    print('u_tilt =',u_tilt)
+    
+    #print('k =',k)
+    #print('u_tilt =',u_tilt)
     
     #Simulation
-    print(u_tilt)
-    print(u_tilt_set[:,k])
+    #print(u_tilt)
+    #print(u_tilt_set[:,k])
     u_tilt_set[:,k] = u_tilt.copy()    
     x_tilt_set[:,k] = x_tilt_current.copy() 
     x_tilt_m1_dummy = x_tilt_current.copy()  
@@ -155,6 +163,8 @@ for k in range(0, len(t)-N):
             x_tilt_current_next = np.matmul(A[:,:,k], x_tilt_current) + np.matmul(B[:,:,k], u_tilt)   
             dx_state[:,k+1] = ( ( x_tilt_current_next+xr[:,k+1] ) - x_state[:,k] )/T  #backward derivative
             x_tilt_current = x_tilt_current_next.copy()  
+        
+    tactime[k] = time.time() - starttime
 
 #zmp        
 ddx_state = np.zeros((n,len(t)-N))
@@ -165,7 +175,7 @@ J = np.zeros((n,n,len(t)-N))
 dJ = np.zeros((n,n,len(t)-N))
 ddv = np.zeros((n,len(t)-N))
 
-for i in range(0, len(t)-N):
+for i in generator(0, len(t)-N):
     J[:,:,i] = np.array([ [np.cos(x_state[2,i]), -np.sin(x_state[2,i]),  0],
                           [np.sin(x_state[2,i]),  np.cos(x_state[2,i]),  0],
                           [                   0,                     0,  1] ])
@@ -175,94 +185,9 @@ for i in range(0, len(t)-N):
     ddv[:,i] = np.matmul( np.linalg.inv(J[:,:,i]) , ddx_state[:,i] - np.matmul(dJ[:,:,i], u[:,i]) )
 
 du = np.zeros((m,len(t)-N))
-du[:,1:] = (u[:,1:]-u[:,:-1])/T;
-
+du[:,1:] = (u[:,1:]-u[:,:-1])/T
 
 ######################################################### plot ############################################################################
-plt.figure(1)
-plt.subplot(2,2,1)
-plt.plot(xr[0,:],xr[1,:], color = 'red', label = 'reference trajectory')
-plt.plot(x_state[0,:],x_state[1,:], color = 'blue', linestyle = '--', label = 'real trajectory')
-'''
-plt.plot(xr[0,0],xr[1,0], color = 'red', linestyle = 'o')
-plt.plot(xr[0,-1],xr[1,-1], color = 'red', linestyle = '^')
-plt.plot(x_state[0,0],x_state[1,0], color = 'blue', linestyle = 'o')
-plt.plot(x_state[0,-1],x_state[1,-1], color = 'black', linestyle = '^')
-'''
-#plt.tight_layout()
-plt.title('trajectory')
-plt.grid(True)
-plt.xlabel('x')
-plt.ylabel('y')
-plt.legend(loc='upper right')
-
-
-plt.subplot(2,2,2)
-plt.plot(t,ur[0,:], color = 'blue', label = 'vx ref')
-plt.plot(t[:-N],u[0,:], color = 'blue', linestyle = '--', label = 'vx real')
-plt.plot(t,ur[1,:], color = 'red', label = 'vy ref')
-plt.plot(t[:-N],u[1,:], color = 'red', linestyle = '--', label = 'vy real')
-plt.plot(t,ur[2,:], color = 'black', label = 'w ref')
-plt.plot(t[:-N],u[2,:], color = 'black', linestyle = '--', label = 'w real')
-#plt.tight_layout()
-plt.title('input')
-plt.grid(True)
-plt.xlabel('t(sec)')
-plt.ylabel('u')
-plt.legend(loc='upper right')
-
-plt.subplot(2,2,3)
-plt.plot(t[:-N],x_tilt_set[0,:], color = 'blue', label = 'x')
-plt.plot(t[:-N],x_tilt_set[1,:], color = 'red', label = 'y')
-plt.plot(t[:-N],x_tilt_set[2,:], color = 'black', label = 'theta')
-if switch_state == 1:
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_state_plus[0], thr_state_plus[0]]), color = 'blue', linestyle = '--')
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_state_plus[1], thr_state_plus[1]]), color = 'red', linestyle = '--')
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_state_plus[2], thr_state_plus[2]]), color = 'black', linestyle = '--')
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_state_minus[0], thr_state_minus[0]]), color = 'blue', linestyle = '--')
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_state_minus[1], thr_state_minus[1]]), color = 'red', linestyle = '--')    
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_state_minus[2], thr_state_minus[2]]), color = 'black', linestyle = '--')
-#plt.tight_layout()
-plt.title('x tilt')
-plt.grid(True)
-plt.xlabel('t(sec)')
-plt.ylabel('x tilt')
-plt.legend(loc='upper right')
-
-plt.subplot(2,2,4)
-plt.plot(t[:-N],u_tilt_set[0,:], color = 'blue', label = 'vx')
-plt.plot(t[:-N],u_tilt_set[1,:], color = 'black', label = 'vy')
-plt.plot(t[:-N],u_tilt_set[2,:], color = 'red', label = 'w')
-if switch_input == 1:
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_input_plus[0], thr_input_plus[0]]), color = 'blue', linestyle = '--')
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_input_minus[0], thr_input_minus[0]]), color = 'blue', linestyle = '--')
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_input_plus[1], thr_input_plus[1]]), color = 'red', linestyle = '--')
-    plt.plot(np.array([t[0], t[-N]]), np.array([thr_input_minus[1], thr_input_minus[1]]), color = 'red', linestyle = '--')
-#plt.tight_layout()
-plt.title('u tilt')
-plt.grid(True)
-plt.xlabel('t(sec)')
-plt.ylabel('u tilt')
-plt.legend(loc='upper right')
-
-plt.figure(2)
-plt.plot(t[:-N], ddx_state[0,:], color = 'blue', label = 'ddx')
-plt.plot(t[:-N], ddx_state[1,:], color = 'red', label = 'ddy')
-plt.plot(t[:-N], (np.abs(np.cos(x_state[2,:]))* D/2 + np.abs(np.sin(x_state[2,:]))* L/2)*g/h2, color = 'blue', linestyle = '--', label = 'zmpx constraint')
-plt.plot(t[:-N], (np.abs(np.sin(x_state[2,:]))* D/2 + np.abs(np.cos(x_state[2,:]))* L/2)*g/h2, color = 'red', linestyle = '--', label = 'zmpy constraint')
-plt.plot(t[:-N], mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':', label = 'slip constraint')
-plt.plot(t[:-N], (np.abs(np.cos(x_state[2,:]))*-D/2 + np.abs(np.sin(x_state[2,:]))*-L/2)*g/h2, color = 'blue', linestyle = '--')
-plt.plot(t[:-N], (np.abs(np.sin(x_state[2,:]))*-D/2 + np.abs(np.cos(x_state[2,:]))*-L/2)*g/h2, color = 'red', linestyle = '--')
-plt.plot(t[:-N], -mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-plt.plot(t[:-N],  mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-plt.plot(t[:-N], -mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-#plt.tight_layout()
-plt.title('constraint')
-plt.grid(True)
-plt.xlabel('t(sec)')
-plt.ylabel('zmp')
-plt.legend(loc='upper right')
-
-plt.show()
-
+dataplot(t, N, L, D, h2, xr, x_state, ur, u, x_tilt_set, thr_state_plus, thr_state_minus, u_tilt_set, thr_input_plus, thr_input_minus, ddx_state, mu, tactime, switch_state, switch_input)
+    
 

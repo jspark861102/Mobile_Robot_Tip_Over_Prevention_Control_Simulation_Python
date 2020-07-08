@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from for_gen import generator
 
 def ref_trajectory_mecanum_wv(L, v_max, road_width,dt,T):
     ###### reference trajectory
@@ -26,14 +27,14 @@ def ref_trajectory_mecanum_wv(L, v_max, road_width,dt,T):
 
     ######make state reference, global coordinate
     theta_ref = np.zeros(len(t))
-    for i in range(0, len(t)-1):
+    for i in generator(0, len(t)-1):
         theta_ref[i+1] = theta_ref[i] + w_ref[i+1] * dt    
 
     dx_ref = v_ref*np.cos(theta_ref) - vy_ref*np.sin(theta_ref)
     dy_ref = v_ref*np.sin(theta_ref) + vy_ref*np.cos(theta_ref)
     x_ref = np.zeros(len(t))
     y_ref = np.zeros(len(t))
-    for i in range(0, len(t)-1):
+    for i in generator(0, len(t)-1):
         x_ref[i+1] = x_ref[i] + dx_ref[i+1] * dt
         y_ref[i+1] = y_ref[i] + dy_ref[i+1] * dt
 
@@ -74,7 +75,7 @@ def ref_trajectory_mecanum_xy(T):
 
     x_ref  = np.zeros(len(t))
     y_ref  = np.zeros(len(t))
-    for i in range(0, len(t)-1):
+    for i in generator(0, len(t)-1):
         x_ref[i+1] = x_ref[i] + dx_ref[i+1] * T
         y_ref[i+1] = y_ref[i] + dy_ref[i+1] * T
 

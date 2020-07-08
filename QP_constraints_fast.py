@@ -14,8 +14,7 @@ def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, D, 
     h = h2
     g = 9.81
     P = 1/(T*T)*np.array([ [1, 0, 0],
-                           [0, 1, 0],
-                           [0, 0, 0] ])
+                           [0, 1, 0] ])
 
    ############################### backward finite difference for zmp ###############################
     if switch_zmp == 1:
@@ -26,35 +25,35 @@ def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, D, 
             #(1,2,3,4), 1:j, (2,3):B(:,:), 4:b_hat_num
             Bhat[b_hat_num-1, :, :, :b_hat_num] = hat.B_hat(A,B,cur_state, cur_state+b_hat_num)            
 
-        G01 = np.zeros((n*N, m*N))
+        G01 = np.zeros(((n-1)*N, m*N))
         for i in generator(1, N+1):    
             for j in generator(1, N+1):    
                 if i-j == 0: #diagonal                    
-                    G01[(i-1)*n : i*n, (j-1)*m : j*m] = np.matmul( P, Bhat[i-1,:,:,j-1] )                    
+                    G01[(i-1)*(n-1) : i*(n-1), (j-1)*m : j*m] = np.matmul( P, Bhat[i-1,:,:,j-1] )                    
                      
                 elif i-j == 1: #one lower than diagonal                     
-                    G01[(i-1)*n : i*n, (j-1)*m : j*m] = np.matmul( P, Bhat[i-1,:,:,j-1] ) + np.matmul( P, -2*Bhat[i-1-1,:,:,j-1] )
+                    G01[(i-1)*(n-1) : i*(n-1), (j-1)*m : j*m] = np.matmul( P, Bhat[i-1,:,:,j-1] ) + np.matmul( P, -2*Bhat[i-1-1,:,:,j-1] )
 
                 elif i-j < 0: #upper diagonal is 0                    
-                    G01[(i-1)*n : i*n, (j-1)*m : j*m] = 0
+                    G01[(i-1)*(n-1) : i*(n-1), (j-1)*m : j*m] = 0
 
                 else: #lower diagonal                    
-                    G01[(i-1)*n : i*n, (j-1)*m : j*m] = np.matmul(P, Bhat[i-1,:,:,j-1]) + np.matmul(P, -2*Bhat[i-1-1,:,:,j-1] + Bhat[i-1-2,:,:,j-1])                      
+                    G01[(i-1)*(n-1) : i*(n-1), (j-1)*m : j*m] = np.matmul(P, Bhat[i-1,:,:,j-1]) + np.matmul(P, -2*Bhat[i-1-1,:,:,j-1] + Bhat[i-1-2,:,:,j-1])                      
                     
         #G0 = np.append(G01,-G01, axis=0)
         G0 = G01.copy()
 
         #E0{2*n*N,n}
-        E01 = np.zeros((n*N,n))
+        E01 = np.zeros(((n-1)*N,n))
         for i in generator(1, N+1):    
             if i == 1:                
-                E01[(i-1)*n : i*n,:] = np.matmul( P, hat.A_hat(A, cur_state, cur_state+i) ) + np.matmul( P, -2*np.eye(n) )
+                E01[(i-1)*(n-1) : i*(n-1),:] = np.matmul( P, hat.A_hat(A, cur_state, cur_state+i) ) + np.matmul( P, -2*np.eye(n) )
                 
             elif i == 2:
-                E01[(i-1)*n : i*n,:] = np.matmul( P, hat.A_hat(A, cur_state, cur_state+i) ) + np.matmul( P, -2*hat.A_hat(A,cur_state,cur_state+(i-1)) + np.eye(n) )
+                E01[(i-1)*(n-1) : i*(n-1),:] = np.matmul( P, hat.A_hat(A, cur_state, cur_state+i) ) + np.matmul( P, -2*hat.A_hat(A,cur_state,cur_state+(i-1)) + np.eye(n) )
 
             else:
-                E01[(i-1)*n : i*n,:] = np.matmul( P, hat.A_hat(A, cur_state, cur_state+i) ) + np.matmul( P, -2*hat.A_hat(A,cur_state,cur_state+(i-1)) + hat.A_hat(A,cur_state,cur_state+(i-2)) )
+                E01[(i-1)*(n-1) : i*(n-1),:] = np.matmul( P, hat.A_hat(A, cur_state, cur_state+i) ) + np.matmul( P, -2*hat.A_hat(A,cur_state,cur_state+(i-1)) + hat.A_hat(A,cur_state,cur_state+(i-2)) )
 
         #E0 = np.append(-E01, -(-E01), axis=0)
         E0 = -E01.copy()
@@ -62,20 +61,18 @@ def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, D, 
 
         #W0{2*n*N,1}
         #w0 = np.zeros(2*n*N)        
-        w0u = np.zeros(n*N)
-        w0l = np.zeros(n*N)
+        w0u = np.zeros((n-1)*N)
+        w0l = np.zeros((n-1)*N)
         for i in generator(1, N+1):    
-            w0u[(i-1)*n : i*n] = np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
-                                                                [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0],
-                                                                [                                                0,                                                 0, 1] ]),  np.array([D/2,L/2,0])*g/h), mu*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i], 0])
+            w0u[(i-1)*(n-1) : i*(n-1)] = np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
+                                                                        [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0] ]), np.array([D/2,L/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
                                      
         for i in generator(1, N+1):    
-            w0l[(i-1)*n : i*n] = - np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
-                                                                  [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0],
-                                                                  [                                                0,                                                 0, 1] ]),  np.array([D/2,L/2,0])*g/h), mu*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i], 0])
+            w0l[(i-1)*(n-1) : i*(n-1)] = - np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
+                                                                          [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0], ]), np.array([D/2,L/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
 
-        w0u = w0u - np.append(np.matmul(P, x_tilt_m1), np.zeros(n*(N-1)), axis=0)
-        w0l = w0l - np.append(np.matmul(P, x_tilt_m1), np.zeros(n*(N-1)), axis=0)    
+        w0u = w0u - np.append(np.matmul(P, x_tilt_m1), np.zeros((n-1)*(N-1)), axis=0)
+        w0l = w0l - np.append(np.matmul(P, x_tilt_m1), np.zeros((n-1)*(N-1)), axis=0)    
         #w0 = np.append(w01, w02, axis=0)        
         ##############################################################          
         
