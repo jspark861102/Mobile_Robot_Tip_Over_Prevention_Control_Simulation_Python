@@ -5,6 +5,6 @@
  cython 설치    
     pip install Cython --install-option="--no-cython-compile"
 
-3. qpOASES for python은 manual.pdf의 3번 방법을 따라서 설치
+3. qpOASES for python은 readme.rst의 3번 방법을 따라서 설치
 
 

@@ -65,10 +65,16 @@ def ref_trajectory_mecanum_xy(T):
     tz=3
     t = np.arange(0, 10+tz+T, T)
     num=19
-    dx_ref = np.concatenate((np.zeros(int((tz*100-2*(num+1)/2)/2)), 1.0*2*math.pi/10*(np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), dx_ref, 1.0*2*math.pi/10*(-np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), np.zeros(int((tz*100-2*(num+1)/2)/2))))
-    dy_ref = np.concatenate((np.zeros(int((tz*100-2*(num+1)/2)/2)), 1.0*4*math.pi/10*(np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), dy_ref, 1.0*4*math.pi/10*(-np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), np.zeros(int((tz*100-2*(num+1)/2)/2))))
+    dx_ref = np.concatenate((np.zeros(int((tz*(1/T)-2*(num+1)/2)/2)), 1.0*2*math.pi/10*(np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), dx_ref, 1.0*2*math.pi/10*(-np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), np.zeros(int((tz*(1/T)-2*(num+1)/2)/2))))
+    dy_ref = np.concatenate((np.zeros(int((tz*(1/T)-2*(num+1)/2)/2)), 1.0*4*math.pi/10*(np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), dy_ref, 1.0*4*math.pi/10*(-np.cos(2*math.pi*np.arange(0,0.5,1/num))/2-0.5), np.zeros(int((tz*(1/T)-2*(num+1)/2)/2))))
 
-    theta_ref = np.concatenate((np.arctan2(dy_ref[141],dx_ref[141])*np.ones(141),  np.arctan2(dy_ref[141:-141],dx_ref[141:-141]),  np.arctan2(dy_ref[1160],dx_ref[1160]*np.ones(141))))
+    if T == 0.01:
+        theta_ref = np.concatenate((np.arctan2(dy_ref[141],dx_ref[141])*np.ones(141),  np.arctan2(dy_ref[141:-141],dx_ref[141:-141]),  np.arctan2(dy_ref[1160], dx_ref[1160]*np.ones(141))))
+    elif T == 0.1:
+        theta_ref = np.concatenate((np.arctan2(dy_ref[6],dx_ref[6])*np.ones(6),  np.arctan2(dy_ref[6:-6],dx_ref[6:-6]),  np.arctan2(dy_ref[125], dx_ref[125]*np.ones(6))))
+    elif T == 0.05:
+            theta_ref = np.concatenate((np.arctan2(dy_ref[21],dx_ref[21])*np.ones(21),  np.arctan2(dy_ref[21:-21],dx_ref[21:-21]),  np.arctan2(dy_ref[240], dx_ref[240]*np.ones(21))))
+
     # theta_ref = zeros(1,length(dx_ref));
     # theta_ref = atan2(dy_ref,dx_ref);
     theta_ref = np.unwrap(theta_ref)

@@ -16,35 +16,31 @@ from data_plot import dataplot
 ##############################################  Parameters  #######################################################################
 ###################################################################################################################################
 
-#############__Simulation Design Parameters__################
-#model, 1:nonlinear model, 2:linear model           #########
-model_switch = 2                                    #########
-#reference trajectory, 1:wv, 2:xy                   #########
-ref_traj_switch = 2                                 #########
-#zmp constraint, 1:on 0:off                         #########
-switch_zmp = 1                                      #########
-#friction constraint, 1:on 0:off                    ######### 
-switch_slip = 0                                     #########
-#input constraint, 1:on 0:off                       #########
-switch_input = 1                                    #########
-#state constraint, 1:on 0:off                       #########
-switch_state = 0                                    #########
-#############################################################
+#############__Simulation Design Parameters__#############
+T = 0.01
+dt = copy.copy(T)
 
-#input constraint
+#model, 1:nonlinear model, 2:linear model
+model_switch = 2
+
+#reference trajectory, 1:wv, 2:xy
+ref_traj_switch = 2
+
+#zmp constraint, 1:on 0:off 
+switch_zmp = 1
+
+#input constraint, 1:on 0:off 
+switch_input = 1
 mag = 2.0
 thr_input_plus = np.array([mag, mag, mag]) 
 thr_input_minus = np.array([-mag, -mag, -mag ])
 thr_input = np.concatenate((thr_input_plus, -thr_input_minus))
 
-#state constraint
+#state constraint, 1:on 0:off 
+switch_state = 0
 thr_state_plus =  np.array([ 0.008,  0.008,  0.008])
 thr_state_minus = np.array([-0.008, -0.008, -0.008])
 thr_state = np.concatenate((thr_state_plus, -thr_state_minus))
-
-#slip constraint
-mu = np.array([0.46, 0.46, 0])
-#mu = np.array([0.1, 0.1, 0])
 
 #############__Simulation Design Parameters__#############
 # MPC parameters
@@ -58,16 +54,22 @@ if ref_traj_switch == 1:
 elif ref_traj_switch == 2:
     x0 = np.array([0.0, 0.0, 0])
 
-#wheel base & width
+#slip 
+mu = np.array([0.46, 0.46, 0])
+#mu = np.array([0.1, 0.1, 0])
+
+#mass
+g = 9.81
+
+#wheel base
 D = 0.5
+
+#width
 L = 0.3
 
 #z value from global origin to link2 mass center
 h2 = 0.6
 
-g = 9.81
-T = 0.01 #0.01, 0.05, 0.1                                            
-dt = copy.copy(T)                                   
 
 ###################################################################################################################################
 #########################################  Reference trajectory  ##################################################################
@@ -98,11 +100,9 @@ m = B.shape[1]
 Q = Qs*np.eye(n)
 R = Rs*np.eye(m)
 
-#zmp constraint
-Df = D *np.ones(len(t)-N)
-Dr = D *np.ones(len(t)-N)
-Lf = L *np.ones(len(t)-N)
-Lr = L *np.ones(len(t)-N)
+#wheel base & width
+D = D * np.ones(len(t)-N)
+L = L * np.ones(len(t)-N)
 
 ###################################################################################################################################
 ############################################  MPC Simulation  #####################################################################
@@ -148,24 +148,7 @@ for k in generator(0, len(t)-N):
     else:
         x_tilt_m1 = x_tilt_m1_dummy.copy()    
     
-    ############if object is slipped, zmp bound is fluctuated###########
-    if switch_slip == 0: #when the slip is not considered
-        if ddx_state[0,k] > mu[0]*g:
-            Df[k:] = D * 0.5
-            Dr[k:] = D * 1.5
-        elif ddx_state[0,k] < -mu[0]*g:
-            Df[k:] = D * 1.5
-            Dr[k:] = D * 0.5
-
-        if ddx_state[1,k] > mu[1]*g:
-            Lf[k:] = L * 0.2
-            Lr[k:] = L * 1.8
-        elif ddx_state[1,k] < -mu[1]*g:
-            Lf[k:] = L * 1.8
-            Lr[k:] = L * 0.2
-    ###################################################################
-
-    G, E, wu, wl, wu_input, wl_input = constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, Df[k], Dr[k], Lf[k], Lr[k], T, switch_zmp, switch_input, thr_input, switch_state, thr_state, switch_slip, mu);
+    G, E, wu, wl, wu_input, wl_input = constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, D[k], L[k], T, switch_zmp, switch_input, thr_input, switch_state, thr_state, mu);
 
     #QP-MPC       
     nWSR = np.array([100])
@@ -199,10 +182,14 @@ for k in generator(0, len(t)-N):
         
     tactime[k] = time.time() - starttime
 
+#Calculate ddx_state
+ddx_state = np.zeros((n,len(t)-N))
+ddx_state[:,1:] = (dx_state[:,1:] - dx_state[:,:-1])/T    #backward derivative
+
 ###################################################################################################################################
 ###############################################  Data Plot  #######################################################################
 ###################################################################################################################################
-dataplot(t, N, Lf, Lr, Df, Dr, h2, xr, x_state, ur, u, x_tilt_set, thr_state_plus, thr_state_minus, u_tilt_set, thr_input_plus, thr_input_minus, ddx_state, mu, tactime, switch_state, switch_input, switch_slip)
+dataplot(t, N, L, D, h2, xr, x_state, ur, u, x_tilt_set, thr_state_plus, thr_state_minus, u_tilt_set, thr_input_plus, thr_input_minus, ddx_state, mu, tactime, switch_state, switch_input)
     
 
 ###### for constratin.py (plot is not working,, why?)

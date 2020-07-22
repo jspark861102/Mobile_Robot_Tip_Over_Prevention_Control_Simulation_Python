@@ -6,7 +6,7 @@ import hat
 from for_gen import generator
 
 # QP constraints
-def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, Df, Dr, Lf, Lr, T, switch_zmp, switch_input, thr_input, switch_state, thr_state, switch_slip, mu):
+def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, D, L, T, switch_zmp, switch_input, thr_input, switch_state, thr_state,mu):
     n = A.shape[0]
     m = B.shape[1]
 
@@ -63,22 +63,13 @@ def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, Df,
         #w0 = np.zeros(2*n*N)        
         w0u = np.zeros((n-1)*N)
         w0l = np.zeros((n-1)*N)
-        if switch_input == 1:
-            for i in generator(1, N+1):    
-                w0u[(i-1)*(n-1) : i*(n-1)] = np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
-                                                                            [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0] ]), np.array([Df/2,Lf/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
-                                        
-            for i in generator(1, N+1):    
-                w0l[(i-1)*(n-1) : i*(n-1)] = - np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
-                                                                            [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0], ]), np.array([Dr/2,Lr/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
-        elif switch_input == 0:
-            for i in generator(1, N+1):    
-                w0u[(i-1)*(n-1) : i*(n-1)] = np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
-                                                                  [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0] ]), np.array([Df/2,Lf/2,0])*g/h) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
-                                        
-            for i in generator(1, N+1):    
-                w0l[(i-1)*(n-1) : i*(n-1)] = - np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
-                                                                    [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0], ]), np.array([Dr/2,Lr/2,0])*g/h) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
+        for i in generator(1, N+1):    
+            w0u[(i-1)*(n-1) : i*(n-1)] = np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
+                                                                        [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0] ]), np.array([D/2,L/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
+                                     
+        for i in generator(1, N+1):    
+            w0l[(i-1)*(n-1) : i*(n-1)] = - np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
+                                                                          [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0], ]), np.array([D/2,L/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
 
         w0u = w0u - np.append(np.matmul(P, x_tilt_m1), np.zeros((n-1)*(N-1)), axis=0)
         w0l = w0l - np.append(np.matmul(P, x_tilt_m1), np.zeros((n-1)*(N-1)), axis=0)    

@@ -1,12 +1,8 @@
 import numpy as np
-from qpoases import PySQProblem as SQProblem
-from qpoases import PyOptions as Options
+from ctr import dlqr
 import math
 import copy
 import ref_trajectory_mecanum
-import Batch_formulation
-#from QP_constraints import constraints
-from QP_constraints_fast import constraints
 import time
 from for_gen import generator
 from data_plot import dataplot
@@ -66,7 +62,7 @@ L = 0.3
 h2 = 0.6
 
 g = 9.81
-T = 0.01 #0.01, 0.05, 0.1                                            
+T = 0.01                                            
 dt = copy.copy(T)                                   
 
 ###################################################################################################################################
@@ -105,110 +101,134 @@ Lf = L *np.ones(len(t)-N)
 Lr = L *np.ones(len(t)-N)
 
 ###################################################################################################################################
-############################################  MPC Simulation  #####################################################################
+############################################  dLQR Simulation  ####################################################################
 ###################################################################################################################################
 
 #initial parameters
-x0_tilt = x0 - xr[:,0]
-u_tilt = np.zeros(m)
-x_tilt_current = x0_tilt
-u =  np.zeros((m,len(t)-N))
-u_tilt_set = np.zeros((m,len(t)-N))
-x_tilt_set = np.zeros((n,len(t)-N))
-x_state = np.zeros((n,len(t)-N))
-dx_state = np.zeros((n,len(t)-N))
-ddx_state = np.zeros((n,len(t)-N))
+x_tilt_lqr_current = x0 - xr[:,0]
+u_tilt_lqr = np.zeros(m)
+k_lqr_set = np.zeros((m,n, len(t)-N))
+s_lqr_set = np.zeros((m,n, len(t)-N))
+e_lqr_set = np.zeros((m,n, len(t)-N))
+u_tilt_lqr_set = np.zeros((m,len(t)-N))
+x_tilt_lqr_set = np.zeros((n,len(t)-N))
+u_lqr =  np.zeros((m,len(t)-N))
+x_state_lqr = np.zeros((n,len(t)-N))
+dx_state_lqr = np.zeros((n,len(t)-N))
 tactime = np.zeros(len(t)-N)
-
-#define QP Structure
-#QP_MPC = SQProblem(m*N, n*N) #including yaw constraint
-QP_MPC = SQProblem(m*N, (n-1)*N) #eliminating yaw constraint
-options = Options()
-QP_MPC.setOptions(options)
-#QP_MPC.printOptions()
 
 #############__Start Simulation!!!__#############
 for k in generator(0, len(t)-N):   
-    # calculate iteration time
     starttime = time.time()
 
-    #MPC formulation
-    cur_state = k
-    #starttime = time.time()
-    Sx, Su, Qb, Rb = Batch_formulation.BF(A, B, N, Q, R, cur_state)
-    #tactime[k] = time.time() - starttime
-
-    H = np.matmul(np.matmul(Su.T, Qb), Su) + Rb
-    F = np.matmul(np.matmul(Sx.T, Qb), Su) 
-    Y = np.matmul(np.matmul(Sx.T, Qb), Sx)    
-
-    #constraints
-    if k == 0 or k == 1:
-        x_tilt_m1 = x0_tilt.copy()
-    else:
-        x_tilt_m1 = x_tilt_m1_dummy.copy()    
-    
-    ############if object is slipped, zmp bound is fluctuated###########
-    if switch_slip == 0: #when the slip is not considered
-        if ddx_state[0,k] > mu[0]*g:
-            Df[k:] = D * 0.5
-            Dr[k:] = D * 1.5
-        elif ddx_state[0,k] < -mu[0]*g:
-            Df[k:] = D * 1.5
-            Dr[k:] = D * 0.5
-
-        if ddx_state[1,k] > mu[1]*g:
-            Lf[k:] = L * 0.2
-            Lr[k:] = L * 1.8
-        elif ddx_state[1,k] < -mu[1]*g:
-            Lf[k:] = L * 1.8
-            Lr[k:] = L * 0.2
-    ###################################################################
-
-    G, E, wu, wl, wu_input, wl_input = constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, Df[k], Dr[k], Lf[k], Lr[k], T, switch_zmp, switch_input, thr_input, switch_state, thr_state, switch_slip, mu);
-
-    #QP-MPC       
-    nWSR = np.array([100])
-    if k == 0:
-        QP_MPC.init(H, 2*np.matmul( F.T, x_tilt_current), G, wl_input, wu_input, wl+np.matmul(E, x_tilt_current), wu+np.matmul(E, x_tilt_current), nWSR)                
-    else:
-        QP_MPC.hotstart(H, 2*np.matmul( F.T, x_tilt_current), G, wl_input, wu_input, wl+np.matmul(E, x_tilt_current), wu+np.matmul(E, x_tilt_current), nWSR)                
-
-    QP_MPC.getPrimalSolution(u_tilt)    
+    #dLQR    
+    k_lqr_set[:,:,k], s_lqr_set[:,:,k], e_lqr_set[:,:,k] = dlqr(A[:,:,k],B[:,:,k],Q,R)
+    u_tilt_lqr = -np.matmul(k_lqr_set[:,:,k], x_tilt_lqr_current)
     
     #Applying input to the plant 
-    u_tilt_set[:,k] = u_tilt.copy()    
-    x_tilt_set[:,k] = x_tilt_current.copy() 
-    x_tilt_m1_dummy = x_tilt_current.copy()  
+    u_tilt_lqr_set[:,k] = u_tilt_lqr.copy()    
+    x_tilt_lqr_set[:,k] = x_tilt_lqr_current.copy()     
     
-    u[:,k] = u_tilt + ur[:,k]
-    x_state[:,k] = x_tilt_current + xr[:,k]
+    u_lqr[:,k] = u_tilt_lqr + ur[:,k]
+    x_state_lqr[:,k] = x_tilt_lqr_current + xr[:,k]    
+    
+    if model_switch == 2: #linear model    
+        if k < len(t)-N-1:  
+            x_tilt_lqr_current_next = np.matmul(A[:,:,k], x_tilt_lqr_current) + np.matmul(B[:,:,k], u_tilt_lqr)   
+            dx_state_lqr[:,k+1] = ( ( x_tilt_lqr_current_next+xr[:,k+1] ) - x_state_lqr[:,k] )/T  #backward derivative
+            x_tilt_lqr_current = x_tilt_lqr_current_next.copy()         
 
-    if model_switch == 1: #nonlinear model
-        if k < len(t)-N-1:  
-            dx_state[:,k+1] = np.array([u[0,k]*np.cos(x_state[2,k]) - u[1,k]*np.sin(x_state[2,k]), u[0,k]*np.sin(x_state[2,k]) + u[1,k]*np.cos(x_state[2,k]), u[2,k]])  #backward derivative    
-            x_state_next = x_state[:,k] + dx_state[:,k+1]*T    #backward derivative
-            x_tilt_current = x_state_next - xr[:,k+1]       
-    
-    elif model_switch == 2: #linear model    
-        if k < len(t)-N-1:  
-            x_tilt_current_next = np.matmul(A[:,:,k], x_tilt_current) + np.matmul(B[:,:,k], u_tilt)   
-            dx_state[:,k+1] = ( ( x_tilt_current_next+xr[:,k+1] ) - x_state[:,k] )/T  #backward derivative
-            ddx_state[:,k+1] = (dx_state[:,k+1] - dx_state[:,k])/T
-            x_tilt_current = x_tilt_current_next.copy()  
-        
-    tactime[k] = time.time() - starttime
+    tactime[k] = time.time() - starttime    
+
+#Calculate ddx_state
+ddx_state_lqr = np.zeros((n,len(t)-N))
+ddx_state_lqr[:,1:] = (dx_state_lqr[:,1:] - dx_state_lqr[:,:-1])/T    #backward derivative
 
 ###################################################################################################################################
 ###############################################  Data Plot  #######################################################################
 ###################################################################################################################################
-dataplot(t, N, Lf, Lr, Df, Dr, h2, xr, x_state, ur, u, x_tilt_set, thr_state_plus, thr_state_minus, u_tilt_set, thr_input_plus, thr_input_minus, ddx_state, mu, tactime, switch_state, switch_input, switch_slip)
+dataplot(t, N, Lf, Lr, Df, Dr, h2, xr, x_state_lqr, ur, u_lqr, x_tilt_lqr_set, thr_state_plus, thr_state_minus, u_tilt_lqr_set, thr_input_plus, thr_input_minus, ddx_state_lqr, mu, tactime, switch_state, switch_input, switch_slip)
     
 
-###### for constratin.py (plot is not working,, why?)
-#from QP_constraints import constraints
-#QP_MPC = SQProblem(m*N, n*N) #including yaw constraint
-##
-###### for constratin_fast.py
-#from QP_constraints_fast import constraints
-#QP_MPC = SQProblem(m*N, (n-1)*N) #eliminating yaw constraint
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###################################################################################################################################
+############################################  MPC Simulation  #####################################################################
+###################################################################################################################################
+
+#initial parameters
+x_tilt_lqr_current = x0 - xr[:,0]
+u_tilt_lqr = np.zeros(m)
+k_lqr_set = np.zeros((m,n, len(t)-N))
+s_lqr_set = np.zeros((m,n, len(t)-N))
+e_lqr_set = np.zeros((m,n, len(t)-N))
+u_tilt_lqr_set = np.zeros((m,len(t)-N))
+x_tilt_lqr_set = np.zeros((n,len(t)-N))
+u_lqr =  np.zeros((m,len(t)-N))
+x_state_lqr = np.zeros((n,len(t)-N))
+dx_state_lqr = np.zeros((n,len(t)-N))
+
+
+#############__Start Simulation!!!__#############
+for k in generator(0, len(t)-N):   
+    
+    #LQR
+    k_lqr_set[:,:,k], s_lqr_set[:,:,k], e_lqr_set[:,:,k] = control.lqr(A[:,:,k],B[:,:,k],Q,R)
+    u_tilt_lqr = -np.matmul(x_tilt_lqr_current, k_lqr_set[:,:,k])
+    
+    #Applying input to the plant 
+    u_tilt_lqr_set[:,k] = u_tilt_lqr.copy()    
+    x_tilt_lqr_set[:,k] = x_tilt_lqr_current.copy()     
+    
+    u_lqr[:,k] = u_tilt_lqr + ur[:,k]
+    x_state_lqr[:,k] = x_tilt_lqr_current + xr[:,k]    
+    
+    if model_switch == 2: #linear model    
+        if k < len(t)-N-1:  
+            x_tilt_lqr_current_next = np.matmul(A[:,:,k], x_tilt_lqr_current) + np.matmul(B[:,:,k], u_tilt_lqr)   
+            dx_state_lqr[:,k+1] = ( ( x_tilt_lqr_current_next+xr[:,k+1] ) - x_state_lqr[:,k] )/T  #backward derivative
+            x_tilt_lqr_current = x_tilt_lqr_current_next.copy()  
+        
+    
+
+#Calculate ddx_state
+ddx_state_lqr = np.zeros((n,len(t)-N))
+ddx_state_lqr[:,1:] = (dx_state_lqr[:,1:] - dx_state_lqr[:,:-1])/T    #backward derivative

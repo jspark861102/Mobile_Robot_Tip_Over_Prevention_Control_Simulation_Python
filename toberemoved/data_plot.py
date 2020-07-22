@@ -3,7 +3,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
-def dataplot(t, N, Lf, Lr, Df, Dr, h2, xr, x_state, ur, u, x_tilt_set, thr_state_plus, thr_state_minus, u_tilt_set, thr_input_plus, thr_input_minus, ddx_state, mu, tactime, switch_state, switch_input, switch_slip):
+def dataplot(t, N, L, D, h2, xr, x_state, ur, u, x_tilt_set, thr_state_plus, thr_state_minus, u_tilt_set, thr_input_plus, thr_input_minus, ddx_state, mu, tactime, switch_state, switch_input):
     g = 9.81
 
     ######################################################### plot ############################################################################
@@ -76,20 +76,14 @@ def dataplot(t, N, Lf, Lr, Df, Dr, h2, xr, x_state, ur, u, x_tilt_set, thr_state
     plt.figure(2)
     plt.plot(t[:-N], ddx_state[0,:], color = 'blue', label = 'ddx')
     plt.plot(t[:-N], ddx_state[1,:], color = 'red', label = 'ddy')
-    plt.plot(t[:-N], (np.abs(np.cos(x_state[2,:]))* Df/2 + np.abs(np.sin(x_state[2,:]))* Lf/2)*g/h2, color = 'blue', linestyle = '--', label = 'zmpx constraint')
-    plt.plot(t[:-N], (np.abs(np.sin(x_state[2,:]))* Df/2 + np.abs(np.cos(x_state[2,:]))* Lf/2)*g/h2, color = 'red', linestyle = '--', label = 'zmpy constraint')    
-    plt.plot(t[:-N], (np.abs(np.cos(x_state[2,:]))*-Dr/2 + np.abs(np.sin(x_state[2,:]))*-Lr/2)*g/h2, color = 'blue', linestyle = '--')
-    plt.plot(t[:-N], (np.abs(np.sin(x_state[2,:]))*-Dr/2 + np.abs(np.cos(x_state[2,:]))*-Lr/2)*g/h2, color = 'red', linestyle = '--')    
-    if switch_slip == 1:
-        plt.plot(t[:-N],  mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':', label = 'slip constraint')
-        plt.plot(t[:-N], -mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-        plt.plot(t[:-N],  mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-        plt.plot(t[:-N], -mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-    elif switch_slip == 0:
-        plt.plot(t[:-N],  mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':', label = 'slip threshold')
-        plt.plot(t[:-N], -mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-        plt.plot(t[:-N],  mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
-        plt.plot(t[:-N], -mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')        
+    plt.plot(t[:-N], (np.abs(np.cos(x_state[2,:]))* D/2 + np.abs(np.sin(x_state[2,:]))* L/2)*g/h2, color = 'blue', linestyle = '--', label = 'zmpx constraint')
+    plt.plot(t[:-N], (np.abs(np.sin(x_state[2,:]))* D/2 + np.abs(np.cos(x_state[2,:]))* L/2)*g/h2, color = 'red', linestyle = '--', label = 'zmpy constraint')
+    plt.plot(t[:-N], mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':', label = 'slip constraint')
+    plt.plot(t[:-N], (np.abs(np.cos(x_state[2,:]))*-D/2 + np.abs(np.sin(x_state[2,:]))*-L/2)*g/h2, color = 'blue', linestyle = '--')
+    plt.plot(t[:-N], (np.abs(np.sin(x_state[2,:]))*-D/2 + np.abs(np.cos(x_state[2,:]))*-L/2)*g/h2, color = 'red', linestyle = '--')
+    plt.plot(t[:-N], -mu[0]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
+    plt.plot(t[:-N],  mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
+    plt.plot(t[:-N], -mu[1]*g *np.ones(len(t)-N), color = 'black', linestyle = ':')
     #plt.tight_layout()
     plt.title('constraint')
     plt.grid(True)
