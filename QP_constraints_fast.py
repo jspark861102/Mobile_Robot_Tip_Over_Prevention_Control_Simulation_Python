@@ -63,7 +63,7 @@ def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, Df,
         #w0 = np.zeros(2*n*N)        
         w0u = np.zeros((n-1)*N)
         w0l = np.zeros((n-1)*N)
-        if switch_input == 1:
+        if switch_slip == 1:
             for i in generator(1, N+1):    
                 w0u[(i-1)*(n-1) : i*(n-1)] = np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
                                                                             [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0] ]), np.array([Df/2,Lf/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
@@ -71,7 +71,7 @@ def constraints(cur_state, xr, ddxr, x_tilt_current, x_tilt_m1, N, A, B, h2, Df,
             for i in generator(1, N+1):    
                 w0l[(i-1)*(n-1) : i*(n-1)] = - np.amin([ np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
                                                                             [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0], ]), np.array([Dr/2,Lr/2,0])*g/h), mu[0:2]*g], axis=0) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
-        elif switch_input == 0:
+        elif switch_slip == 0:
             for i in generator(1, N+1):    
                 w0u[(i-1)*(n-1) : i*(n-1)] = np.matmul(np.array([ [np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), 0], 
                                                                   [np.abs(np.sin(x_tilt_current[2]+xr[2,cur_state])), np.abs(np.cos(x_tilt_current[2]+xr[2,cur_state])), 0] ]), np.array([Df/2,Lf/2,0])*g/h) - np.array([ddxr[0,cur_state+i], ddxr[1,cur_state+i]])
